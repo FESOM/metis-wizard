@@ -6,7 +6,6 @@ authors = ["Paul Gierz <pgierz@awi.de>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
 f90nml = "^1.4.4"
 rich-click = "^1.8.3"
 click-loguru = "^1.3.8"
