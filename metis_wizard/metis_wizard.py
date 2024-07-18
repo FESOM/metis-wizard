@@ -5,6 +5,7 @@ A ``partition`` is a collection of subdomains that cover the entire domain of th
 scales to approximately 300 cores. See the notes in the ``fesom`` documentation <https://readthedocs.org/fesom/> for more information. 
 """
 
+import importlib.resources as pkg_resources
 import pathlib
 import shutil
 import subprocess
@@ -85,7 +86,6 @@ class MetisPartitioner:
     """
 
     _BIN = "fesom_ini"
-    _NML = "namelist.config"
 
     def __init__(self, bin: str = None) -> None:
         """
@@ -111,7 +111,7 @@ class MetisPartitioner:
         n_part (int, optional): The number of partitions. Defaults to 288.
         """
         # Create the namelist:
-        nml = prepare_namelist(self._NML, mesh, n_part)
+        nml = prepare_namelist(mesh, n_part)
         # Write the namelist:
         nml.write("namelist.config", force=True)
         logger.info(f"Namelist written for {self.bin}.")
@@ -121,21 +121,26 @@ class MetisPartitioner:
         logger.success(f"Mesh partitioned with {self.bin} for {n_part}.")
 
 
-def prepare_namelist(nml_path: str or pathlib.Path, mesh: FesomMesh, n_part: int = 288):
+def read_namelist_config():
+    with pkg_resources.open_text("metis_wizard", "namelist.config") as file:
+        data = file.read()
+    return data
+
+
+def prepare_namelist(mesh: FesomMesh, n_part: int = 288):
     """
     This function prepares the METIS namelist file for partitioning.
 
     Parameters:
     -----------
-    nml_path (str): The path to the namelist file.
     n_part (int, optional): The number of partitions. Defaults to 288.
 
     Returns:
     --------
     MetisNamelist object: The METIS namelist object.
     """
-    with open(nml_path, "r") as f:
-        nml = MetisNamelist(f90nml.read(f))
+    f = read_namelist_config()
+    nml = MetisNamelist(f90nml.reads(f))
     nml.set_mesh(mesh.path)
     nml.set_partitioning(n_part)
     return nml

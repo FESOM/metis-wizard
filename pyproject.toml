@@ -4,18 +4,21 @@ version = "1.0.0"
 description = ""
 authors = ["Paul Gierz <pgierz@awi.de>"]
 readme = "README.md"
+include = ["metis_wizard/namelist.config"]
+packages = [
+    { include = "metis_wizard", from = "." }
+]
+
 
 [tool.poetry.dependencies]
 f90nml = "^1.4.4"
 rich-click = "^1.8.3"
 click-loguru = "^1.3.8"
 questionary = "^2.0.1"
-
 click = "^8.1.7"
 
 [tool.poetry.scripts]
-metis-wizard = "metis_wizard:main"
-
+metis-wizard = "metis_wizard.metis_wizard:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
