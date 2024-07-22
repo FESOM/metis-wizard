@@ -6,7 +6,6 @@ scales to approximately 300 cores. See the notes in the ``fesom`` documentation 
 """
 
 import importlib.resources as pkg_resources
-import pathlib
 import shutil
 import subprocess
 
@@ -16,7 +15,7 @@ import rich_click as click
 from click_loguru import ClickLoguru
 from loguru import logger
 
-__version__ = "1.0.0"
+__version__ = "2.1.0"
 __author__ = "FESOM Team"
 __license__ = "MIT"
 __maintainer__ = "FESOM Team"
