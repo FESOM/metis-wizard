@@ -101,7 +101,9 @@ class MetisPartitioner:
         except AssertionError:
             raise MetisPartitionerError(f"{self.bin} not found on PATH.")
 
-    def partition_mesh(self, mesh: FesomMesh, n_part: int = 288) -> None:
+    def partition_mesh(
+        self, mesh: FesomMesh, n_part: int = 288, alpha=None, beta=None, gamma=None
+    ) -> None:
         """
         Partitions the mesh using METIS.
 
@@ -111,7 +113,7 @@ class MetisPartitioner:
         n_part (int, optional): The number of partitions. Defaults to 288.
         """
         # Create the namelist:
-        nml = prepare_namelist(mesh, n_part)
+        nml = prepare_namelist(mesh, n_part, alpha, beta, gamma)
         # Write the namelist:
         nml.write("namelist.config", force=True)
         logger.info(f"Namelist written for {self.bin}.")
@@ -127,7 +129,9 @@ def read_namelist_config():
     return data
 
 
-def prepare_namelist(mesh: FesomMesh, n_part: int = 288):
+def prepare_namelist(
+    mesh: FesomMesh, n_part: int = 288, alpha=None, beta=None, gamma=None
+):
     """
     This function prepares the METIS namelist file for partitioning.
 
@@ -143,6 +147,12 @@ def prepare_namelist(mesh: FesomMesh, n_part: int = 288):
     nml = MetisNamelist(f90nml.reads(f))
     nml.set_mesh(mesh.path)
     nml.set_partitioning(n_part)
+    if alpha is not None:
+        nml["geometry"]["alphaeuler"] = alpha
+    if beta is not None:
+        nml["geometry"]["betaeuler"] = beta
+    if gamma is not None:
+        nml["geometry"]["gammaeuler"] = gamma
     return nml
 
 
@@ -153,7 +163,25 @@ def prepare_namelist(mesh: FesomMesh, n_part: int = 288):
 @click.argument("mesh_path", type=click.Path(exists=True))
 @click.argument("n_part", nargs=-1)
 @click.option("--interactive", is_flag=True, help="Interactive mode.")
-def main(verbose, quiet, logfile, profile_mem, mesh_path, n_part, interactive=False):
+@click.option(
+    "--rotated", nargs=3, type=float, help="Rotated mesh. Give alpha, beta, gamma."
+)
+def main(
+    verbose,
+    quiet,
+    logfile,
+    profile_mem,
+    mesh_path,
+    n_part,
+    interactive=False,
+    rotated=None,
+):
+    if rotated is not None:
+        logger.info("Rotated mesh dected. Rotating mesh...")
+        alpha, beta, gamma = rotated
+        logger.info(f"Rotating mesh by alpha={alpha}, beta={beta}, gamma={gamma}")
+    else:
+        alpha, beta, gamma = None, None, None
     if not n_part and interactive:
         logger.info("Interactive mode enabled for selecting partitions:")
         logger.info("Highlighted (filled in) partitions will be generated...")
