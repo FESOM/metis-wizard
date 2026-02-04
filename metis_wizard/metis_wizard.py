@@ -101,7 +101,7 @@ class MetisPartitioner:
             raise MetisPartitionerError(f"{self.bin} not found on PATH.")
 
     def partition_mesh(
-        self, mesh: FesomMesh, n_part: int = 288, alpha=None, beta=None, gamma=None
+        self, mesh: FesomMesh, n_part: int = 288, alpha=None, beta=None, gamma=None, use_cavity=False, namelist_path=None
     ) -> None:
         """
         Partitions the mesh using METIS.
@@ -112,7 +112,7 @@ class MetisPartitioner:
         n_part (int, optional): The number of partitions. Defaults to 288.
         """
         # Create the namelist:
-        nml = prepare_namelist(mesh, n_part, alpha, beta, gamma)
+        nml = prepare_namelist(mesh, n_part, alpha, beta, gamma, use_cavity, namelist_path)
         # Write the namelist:
         nml.write("namelist.config", force=True)
         logger.info(f"Namelist written for {self.bin}.")
@@ -129,7 +129,7 @@ def read_namelist_config():
 
 
 def prepare_namelist(
-    mesh: FesomMesh, n_part: int = 288, alpha=None, beta=None, gamma=None
+    mesh: FesomMesh, n_part: int = 288, alpha=None, beta=None, gamma=None, use_cavity=False, namelist_path=None
 ):
     """
     This function prepares the METIS namelist file for partitioning.
@@ -137,13 +137,17 @@ def prepare_namelist(
     Parameters:
     -----------
     n_part (int, optional): The number of partitions. Defaults to 288.
+    namelist_path (str, optional): Path to custom namelist template. Defaults to bundled template.
 
     Returns:
     --------
     MetisNamelist object: The METIS namelist object.
     """
-    f = read_namelist_config()
-    nml = MetisNamelist(f90nml.reads(f))
+    if namelist_path is not None:
+        nml = MetisNamelist(f90nml.read(namelist_path))
+    else:
+        f = read_namelist_config()
+        nml = MetisNamelist(f90nml.reads(f))
     nml.set_mesh(mesh.path)
     nml.set_partitioning(n_part)
     if alpha is not None:
@@ -152,6 +156,10 @@ def prepare_namelist(
         nml["geometry"]["betaeuler"] = beta
     if gamma is not None:
         nml["geometry"]["gammaeuler"] = gamma
+    if use_cavity:
+        nml["ale_def"]["use_partial_cell"] = True
+        nml["run_config"]["use_cavity"] = True
+        nml["run_config"]["use_cavity_partial_cell"] = True
     return nml
 
 
@@ -165,6 +173,21 @@ def prepare_namelist(
 @click.option(
     "--rotated", nargs=3, type=float, help="Rotated mesh. Give alpha, beta, gamma."
 )
+@click.option(
+    "--use-cavity",
+    is_flag=True,
+    help="Enable cavity support. Sets use_cavity, use_cavity_partial_cell, and use_partial_cell.",
+)
+@click.option(
+    "--fesom-ini",
+    type=click.Path(exists=True),
+    help="Path to fesom_ini binary. Defaults to searching PATH.",
+)
+@click.option(
+    "--namelist",
+    type=click.Path(exists=True),
+    help="Path to custom namelist template. Defaults to bundled template.",
+)
 def main(
     verbose,
     quiet,
@@ -174,6 +197,9 @@ def main(
     n_part,
     interactive=False,
     rotated=None,
+    use_cavity=False,
+    fesom_ini=None,
+    namelist=None,
 ):
     if rotated is not None:
         logger.info("Rotated mesh dected. Rotating mesh...")
@@ -181,6 +207,8 @@ def main(
         logger.info(f"Rotating mesh by alpha={alpha}, beta={beta}, gamma={gamma}")
     else:
         alpha, beta, gamma = None, None, None
+    if use_cavity:
+        logger.info("Cavity support enabled. Setting use_cavity, use_cavity_partial_cell, and use_partial_cell.")
     if not n_part and interactive:
         logger.info("Interactive mode enabled for selecting partitions:")
         logger.info("Highlighted (filled in) partitions will be generated...")
@@ -204,11 +232,11 @@ def main(
     logger.info("Beginning Mesh Partitioning with METIS")
     logger.info(f"Mesh Path: {mesh_path}")
     logger.info(f"Number of Partition Schemes: {len(n_part)}")
-    partitoner = MetisPartitioner()
+    partitoner = MetisPartitioner(bin=fesom_ini)
     mesh = FesomMesh(mesh_path)
     for n in n_part:
         logger.info(f"Partition Scheme: {n}")
-        partitoner.partition_mesh(mesh, n)
+        partitoner.partition_mesh(mesh, n, alpha, beta, gamma, use_cavity, namelist)
 
 
 if __name__ == "__main__":
